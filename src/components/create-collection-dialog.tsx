@@ -12,6 +12,7 @@
 
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,10 +26,34 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createCollection } from "@/lib/actions/collections";
+import { toast } from "sonner";
 
 export function CreateCollectionDialog() {
+  const [open, setOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setIsLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const result = await createCollection({
+      name: formData.get("name") as string,
+      description: formData.get("description") as string,
+    });
+
+    setIsLoading(false);
+
+    if (result.success) {
+      toast.success("Collection created!");
+      setOpen(false);
+    } else {
+      toast.error(result.error || "Failed to create collection");
+    }
+  }
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>Create Collection</Button>
       </DialogTrigger>
@@ -39,17 +64,17 @@ export function CreateCollectionDialog() {
             Create a new collection to organize your bookmarks.
           </DialogDescription>
         </DialogHeader>
-        <form className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
-            <Input id="name" placeholder="My Collection" />
+            <Input id="name" name="name" placeholder="My Collection" required />
           </div>
           <div className="space-y-2">
             <Label htmlFor="description">Description (optional)</Label>
-            <Textarea id="description" placeholder="What's this collection about?" />
+            <Textarea id="description" name="description" placeholder="What's this collection about?" />
           </div>
-          <Button type="submit" className="w-full">
-            Create
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Creating..." : "Create"}
           </Button>
         </form>
       </DialogContent>

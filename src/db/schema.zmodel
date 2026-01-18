@@ -30,8 +30,7 @@ model User {
   name      String
   createdAt DateTime @default(now())
 
-  // TODO: Add relation to collections once you create the Collection model
-  // collections Collection[]
+  collections Collection[]
 
   // Access policy: Users are readable by anyone (for displaying owner info)
   @@allow('read', true)
@@ -67,9 +66,24 @@ enum ShareMode {
 // - read: Owner can always read, others can read if shareMode != PRIVATE
 // - update/delete: Only owner can modify
 //
-// model Collection {
-//   // Your implementation here
-// }
+model Collection {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  slug          String    @unique @default(cuid())
+  shareMode     ShareMode @default(PRIVATE)
+  sharePassword String?   @password @omit
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  ownerId       String
+  owner         User       @relation(fields: [ownerId], references: [id])
+  bookmarks     Bookmark[]
+
+  @@allow('create', auth() != null)
+  @@allow('read', owner == auth() || shareMode != PRIVATE)
+  @@allow('update', owner == auth())
+  @@allow('delete', owner == auth())
+}
 
 // =============================================================================
 // TODO: Implement Bookmark Model
@@ -90,6 +104,19 @@ enum ShareMode {
 //   - read: Same as collection read policy
 //   - update/delete: Only collection owner can modify
 //
-// model Bookmark {
-//   // Your implementation here
-// }
+model Bookmark {
+  id           String   @id @default(cuid())
+  title        String
+  url          String
+  description  String?
+  tags         String?  // JSON array stored as string, e.g. '["react","tutorial"]'
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@allow('create', collection.owner == auth())
+  @@allow('read', collection.owner == auth() || collection.shareMode != PRIVATE)
+  @@allow('update', collection.owner == auth())
+  @@allow('delete', collection.owner == auth())
+}

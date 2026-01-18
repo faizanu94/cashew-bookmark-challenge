@@ -10,12 +10,19 @@
 
 import { CollectionsList } from "@/components/collections-list";
 import { CreateCollectionDialog } from "@/components/create-collection-dialog";
-// import { getEnhancedPrisma } from "@/lib/db";
+import { getEnhancedPrisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 
 export default async function CollectionsPage() {
-  // TODO: Fetch collections with getEnhancedPrisma()
+  // Fetch collections with getEnhancedPrisma()
   // Include bookmark count: include: { _count: { select: { bookmarks: true } } }
-  const collections: never[] = []; // Replace with actual fetch
+  const user = await getCurrentUser();
+  const db = await getEnhancedPrisma();
+  const collections = await db.collection.findMany({
+    where: { ownerId: user?.id },
+    include: { _count: { select: { bookmarks: true } } },
+    orderBy: { createdAt: "desc" },
+  });
 
   return (
     <div className="space-y-6">
@@ -31,7 +38,6 @@ export default async function CollectionsPage() {
         <CreateCollectionDialog />
       </div>
 
-      {/* TODO: Replace empty array with fetched collections */}
       <CollectionsList collections={collections} />
     </div>
   );

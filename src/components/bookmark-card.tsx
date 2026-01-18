@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { ExternalLink, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,14 +21,14 @@ interface Bookmark {
 interface BookmarkCardProps {
   bookmark: Bookmark;
   readonly?: boolean;
-  onEdit?: (bookmark: Bookmark) => void;
+  editDialog?: React.ReactNode;
   onDelete?: (bookmark: Bookmark) => void;
 }
 
 export function BookmarkCard({
   bookmark,
   readonly = false,
-  onEdit,
+  editDialog,
   onDelete,
 }: BookmarkCardProps) {
   // Truncate URL for display
@@ -57,19 +57,9 @@ export function BookmarkCard({
             </CardDescription>
           </div>
 
-          {!readonly && (onEdit || onDelete) && (
+          {!readonly && (editDialog || onDelete) && (
             <div className="flex gap-1 flex-shrink-0">
-              {onEdit && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => onEdit(bookmark)}
-                >
-                  <Pencil className="h-4 w-4" />
-                  <span className="sr-only">Edit</span>
-                </Button>
-              )}
+              {editDialog}
               {onDelete && (
                 <Button
                   variant="ghost"

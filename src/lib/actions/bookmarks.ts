@@ -25,20 +25,20 @@ import { getEnhancedPrisma } from "@/lib/db";
 // Validation Schemas
 // -----------------------------------------------------------------------------
 
-// const createBookmarkSchema = z.object({
-//   collectionId: z.string().cuid(),
-//   title: z.string().min(1, "Title is required").max(200),
-//   url: z.string().url("Invalid URL"),
-//   description: z.string().max(500).optional(),
-//   tags: z.array(z.string().max(50)).max(10).optional(),
-// });
+const createBookmarkSchema = z.object({
+  collectionId: z.string().cuid(),
+  title: z.string().min(1, "Title is required").max(200),
+  url: z.string().url("Invalid URL"),
+  description: z.string().max(500).optional(),
+  tags: z.array(z.string().max(50)).max(10).optional(),
+});
 
-// const updateBookmarkSchema = z.object({
-//   title: z.string().min(1).max(200).optional(),
-//   url: z.string().url().optional(),
-//   description: z.string().max(500).optional(),
-//   tags: z.array(z.string().max(50)).max(10).optional(),
-// });
+const updateBookmarkSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  url: z.string().url().optional(),
+  description: z.string().max(500).optional(),
+  tags: z.array(z.string().max(50)).max(10).optional(),
+});
 
 // -----------------------------------------------------------------------------
 // Server Actions
@@ -63,9 +63,24 @@ export async function createBookmark(data: {
   description?: string;
   tags?: string[];
 }) {
-  // TODO: Implement
-  console.log("createBookmark called with:", data);
-  throw new Error("Not implemented");
+  try {
+    const validated = createBookmarkSchema.parse(data);
+    const db = await getEnhancedPrisma();
+    const bookmark = await db.bookmark.create({
+      data: {
+        title: validated.title,
+        url: validated.url,
+        description: validated.description,
+        tags: validated.tags ? JSON.stringify(validated.tags) : null,
+        collection: { connect: { id: validated.collectionId } },
+      },
+    });
+    revalidatePath(`/collections/${validated.collectionId}`);
+    return { success: true, data: bookmark };
+  } catch (error) {
+    console.error("createBookmark error:", error);
+    return { success: false, error: "Failed to create bookmark" };
+  }
 }
 
 /**
@@ -89,9 +104,22 @@ export async function updateBookmark(
     tags?: string[];
   }
 ) {
-  // TODO: Implement
-  console.log("updateBookmark called with:", id, data);
-  throw new Error("Not implemented");
+  try {
+    const validated = updateBookmarkSchema.parse(data);
+    const db = await getEnhancedPrisma();
+    const bookmark = await db.bookmark.update({
+      where: { id },
+      data: {
+        ...validated,
+        tags: validated.tags !== undefined ? JSON.stringify(validated.tags) : undefined,
+      },
+    });
+    revalidatePath(`/collections/${bookmark.collectionId}`);
+    return { success: true, data: bookmark };
+  } catch (error) {
+    console.error("updateBookmark error:", error);
+    return { success: false, error: "Failed to update bookmark" };
+  }
 }
 
 /**
@@ -105,7 +133,13 @@ export async function updateBookmark(
  * - Revalidate the collection detail page
  */
 export async function deleteBookmark(id: string) {
-  // TODO: Implement
-  console.log("deleteBookmark called with:", id);
-  throw new Error("Not implemented");
+  try {
+    const db = await getEnhancedPrisma();
+    const bookmark = await db.bookmark.delete({ where: { id } });
+    revalidatePath(`/collections/${bookmark.collectionId}`);
+    return { success: true };
+  } catch (error) {
+    console.error("deleteBookmark error:", error);
+    return { success: false, error: "Failed to delete bookmark" };
+  }
 }

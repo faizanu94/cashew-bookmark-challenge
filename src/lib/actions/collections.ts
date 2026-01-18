@@ -18,25 +18,28 @@
 // =============================================================================
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { getEnhancedPrisma } from "@/lib/db";
+import { prisma } from "@/db/prisma";
+import { getCurrentUser } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 
 // -----------------------------------------------------------------------------
 // Validation Schemas
 // -----------------------------------------------------------------------------
 
-// const createCollectionSchema = z.object({
-//   name: z.string().min(1, "Name is required").max(100),
-//   description: z.string().max(500).optional(),
-// });
+const createCollectionSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100),
+  description: z.string().max(500).optional(),
+});
 
-// const updateCollectionSchema = z.object({
-//   name: z.string().min(1).max(100).optional(),
-//   description: z.string().max(500).optional(),
-//   shareMode: z.enum(["PRIVATE", "LINK_ACCESS", "PASSWORD_PROTECTED"]).optional(),
-//   sharePassword: z.string().min(4).max(100).optional(),
-// });
+const updateCollectionSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional(),
+  shareMode: z.enum(["PRIVATE", "LINK_ACCESS", "PASSWORD_PROTECTED"]).optional(),
+  sharePassword: z.string().min(4).max(100).optional(),
+});
 
 // -----------------------------------------------------------------------------
 // Server Actions
@@ -58,9 +61,28 @@ export async function createCollection(data: {
   name: string;
   description?: string;
 }) {
-  // TODO: Implement
-  console.log("createCollection called with:", data);
-  throw new Error("Not implemented");
+  try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    const validated = createCollectionSchema.parse(data);
+    const db = await getEnhancedPrisma();
+    const collection = await db.collection.create({
+      data: {
+        name: validated.name,
+        description: validated.description,
+        owner: { connect: { id: user.id } },
+      },
+    });
+    revalidatePath("/collections");
+    return { success: true, data: collection };
+  } catch (error) {
+    console.error("createCollection error:", error);
+    return { success: false, error: "Failed to create collection" };
+  }
 }
 
 /**
@@ -85,9 +107,20 @@ export async function updateCollection(
     sharePassword?: string;
   }
 ) {
-  // TODO: Implement
-  console.log("updateCollection called with:", id, data);
-  throw new Error("Not implemented");
+  try {
+    const validated = updateCollectionSchema.parse(data);
+    const db = await getEnhancedPrisma();
+    const collection = await db.collection.update({
+      where: { id },
+      data: validated,
+    });
+    revalidatePath("/collections");
+    revalidatePath(`/collections/${id}`);
+    return { success: true, data: collection };
+  } catch (error) {
+    console.error("updateCollection error:", error);
+    return { success: false, error: "Failed to update collection" };
+  }
 }
 
 /**
@@ -102,9 +135,15 @@ export async function updateCollection(
  * - Revalidate the collections page
  */
 export async function deleteCollection(id: string) {
-  // TODO: Implement
-  console.log("deleteCollection called with:", id);
-  throw new Error("Not implemented");
+  try {
+    const db = await getEnhancedPrisma();
+    await db.collection.delete({ where: { id } });
+    revalidatePath("/collections");
+    return { success: true };
+  } catch (error) {
+    console.error("deleteCollection error:", error);
+    return { success: false, error: "Failed to delete collection" };
+  }
 }
 
 /**
@@ -112,6 +151,13 @@ export async function deleteCollection(id: string) {
  *
  * ⚠️ CODE REVIEW CHALLENGE: This implementation has security issues.
  * Identify and fix them as part of your submission.
+ *
+ * SECURITY FIXES:
+ * 1. Use raw prisma instead of enhanced (sharePassword has @omit)
+ * 2. Use bcrypt.compare() instead of plain text comparison
+ * 3. Check that collection is PASSWORD_PROTECTED
+ * 4. Set cookie on success for session persistence
+ * 5. Use consistent error message
  *
  * @param slug - Collection slug
  * @param password - Password to verify
@@ -121,20 +167,40 @@ export async function verifySharePassword(
   slug: string,
   password: string
 ): Promise<{ success: boolean; error?: string }> {
-  const db = await getEnhancedPrisma();
+  if (!slug || !password) {
+    return { success: false, error: "Invalid request" };
+  }
 
-  const collection = await db.collection.findUnique({
+  const collection = await prisma.collection.findUnique({
     where: { slug },
     select: { sharePassword: true, shareMode: true },
   });
 
   if (!collection) {
-    return { success: false, error: "Collection not found" };
+    return { success: false, error: "Invalid password" };
   }
 
-  if (password === collection.sharePassword) {
-    return { success: true };
+  if (collection.shareMode !== "PASSWORD_PROTECTED") {
+    return { success: false, error: "Invalid request" };
   }
 
-  return { success: false, error: "Incorrect password" };
+  if (!collection.sharePassword) {
+    return { success: false, error: "Invalid password" };
+  }
+
+  const isValid = await bcrypt.compare(password, collection.sharePassword);
+
+  if (!isValid) {
+    return { success: false, error: "Invalid password" };
+  }
+
+  const cookieStore = await cookies();
+
+  cookieStore.set(`share-verified-${slug}`, "true", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24,
+  });
+
+  return { success: true };
 }

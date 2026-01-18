@@ -20,8 +20,35 @@ enum ShareMode {
 }
 
 model User {
-  id        String   @id() @default(cuid())
-  email     String   @unique()
-  name      String
-  createdAt DateTime @default(now())
+  id          String       @id() @default(cuid())
+  email       String       @unique()
+  name        String
+  createdAt   DateTime     @default(now())
+  collections Collection[]
+}
+
+model Collection {
+  id            String     @id() @default(cuid())
+  name          String
+  description   String?
+  slug          String     @unique() @default(cuid())
+  shareMode     ShareMode  @default(PRIVATE)
+  sharePassword String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt()
+  ownerId       String
+  owner         User       @relation(fields: [ownerId], references: [id])
+  bookmarks     Bookmark[]
+}
+
+model Bookmark {
+  id           String     @id() @default(cuid())
+  title        String
+  url          String
+  description  String?
+  tags         String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt()
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
 }

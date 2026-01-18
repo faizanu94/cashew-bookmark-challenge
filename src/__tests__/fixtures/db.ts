@@ -68,15 +68,13 @@ export async function resetDatabase() {
   // Delete all data in FK-safe order (children before parents)
   // Note: Models may not exist yet in incomplete implementation
   try {
-    // @ts-expect-error - Bookmark model may not exist yet
-    await rawPrisma.bookmark?.deleteMany({});
+    await rawPrisma.bookmark.deleteMany({});
   } catch {
     // Model doesn't exist yet
   }
 
   try {
-    // @ts-expect-error - Collection model may not exist yet
-    await rawPrisma.collection?.deleteMany({});
+    await rawPrisma.collection.deleteMany({});
   } catch {
     // Model doesn't exist yet
   }
@@ -135,9 +133,9 @@ export async function createTestUsers() {
 export async function cleanupTestData() {
   const testUserIds = [TEST_USERS.owner.id, TEST_USERS.other.id];
 
+  // Note: @ts-expect-error comments removed - models now exist after schema implementation
   try {
-    // @ts-expect-error - Bookmark model may not exist yet
-    await rawPrisma.bookmark?.deleteMany({
+    await rawPrisma.bookmark.deleteMany({
       where: {
         collection: {
           ownerId: { in: testUserIds },
@@ -149,8 +147,7 @@ export async function cleanupTestData() {
   }
 
   try {
-    // @ts-expect-error - Collection model may not exist yet
-    await rawPrisma.collection?.deleteMany({
+    await rawPrisma.collection.deleteMany({
       where: { ownerId: { in: testUserIds } },
     });
   } catch {

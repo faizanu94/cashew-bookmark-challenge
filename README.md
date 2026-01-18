@@ -348,15 +348,13 @@ Email your submission to **both**:
 
 ---
 
-## Design Decisions (Optional)
+## Design Decisions
 
-If you make any notable design decisions, document them here:
-
-```
-Example:
-- Used optimistic updates for bookmarks because...
-- Implemented password verification with cookies because...
-```
+- Security Fixes in `verifySharePassword` documented [here](src/lib/actions/collections.ts#L155)
+- Used server actions with Zod validation for type-safe form handling
+- Leveraged ZenStack access policies to automatically enforce authorization at the data layer
+- Implemented cascade delete via Prisma schema (`onDelete: Cascade`) for bookmark cleanup
+- Used httpOnly cookies for password verification to prevent XSS attacks
 
 ---
 
